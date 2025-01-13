@@ -249,7 +249,9 @@ def write_pairing(dir, udid):
 @click.option('-p', '--pair', is_flag=True, default=False, help='Alternate pairing mode, will wait to pair to 1 device')
 @click.option('-f', '--file', default=None, help='Directory to output pairing file to')
 @click.option('-t', '--tunnel', is_flag=True, default=False, help='This will not launch the tunnel task! You must manually start it')
-def start_server(verbose, timeout, port, show_installed, pair, version, file, tunnel):
+@click.option('-u', '--uuid', default=None, help='UUID of the device to connect to')
+
+def start_server(verbose, timeout, port, show_installed, pair, version, file, tunnel, uuid):
     global devs
     if version:
         click.echo(f"pymobiledevice3: {pymd_ver}" + "\n" + f"SideJITServer: {__version__}")
@@ -286,8 +288,18 @@ def start_server(verbose, timeout, port, show_installed, pair, version, file, tu
             write_pairing(file, dev.identifier)
         if "y" not in input("Continue? [y/N]: ").lower():
             exit(0)
-
-    refresh_devs(show_installed)
+            
+    elif uuid:
+        click.echo(f"Connecting to device with UUID: {uuid}")
+        devices = get_tunneld_devices()
+        matching_device = next((d for d in devices if d.udid == uuid), None)
+        if not matching_device:
+            click.echo(f"No device found with UUID {uuid}")
+            exit(1)
+        asyncio.run(auto_mount_personalized(matching_device))
+        devs = [Device(matching_device, matching_device.name, matching_device.udid, []).refresh_apps()]
+    else:
+        refresh_devs(show_installed)
 
     if file:
         if len(devs) > 1:
